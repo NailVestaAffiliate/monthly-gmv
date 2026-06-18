@@ -65,7 +65,8 @@ df["GMV佔比"] = df["GMV"] / df["GMV"].sum() * 100
 # =========================================================
 
 def usd(v):
-    return "—" if v is None or pd.isna(v) else f"${v:,.2f}"
+    # 跳脫 $，避免 Streamlit markdown 把 $...$ 當成 LaTeX 數學式
+    return "—" if v is None or pd.isna(v) else f"\\${v:,.2f}"
 
 def pct(v):
     return "—" if v is None or pd.isna(v) else f"{v:.2f}%"
@@ -304,7 +305,7 @@ st.markdown(f"""
 
 <br><br>
 
-Top10 達人 GMV：<b>${TOP10_GMV:,}</b>
+Top10 達人 GMV：<b>\\${TOP10_GMV:,}</b>
 
 <br><br>
 
@@ -330,16 +331,16 @@ st.subheader("下半年 GMV 預測")
 forecast_df = pd.DataFrame(FORECAST_DATA).set_index("月份")
 st.line_chart(forecast_df, height=320)
 
-st.markdown("""
+st.markdown(r"""
 <div class="analysis-box">
 
-<b>6月：</b> 夏季美甲開始進入旺季，預估 <b>$105k-$115k</b><br>
-<b>7月：</b> 暑假流量，預估 <b>$110k-$125k</b><br>
-<b>8月：</b> Back to School，預估 <b>$120k-$135k</b><br>
-<b>9月：</b> 通常小回落，預估 <b>$110k-$125k</b><br>
-<b>10月：</b> Halloween，預估 <b>$125k-$145k</b><br>
-<b>11月：</b> Black Friday，預估 <b>$180k-$250k</b><br>
-<b>12月：</b> Christmas，預估 <b>$200k-$300k</b>
+<b>6月：</b> 夏季美甲開始進入旺季，預估 <b>\$105k-\$115k</b><br>
+<b>7月：</b> 暑假流量，預估 <b>\$110k-\$125k</b><br>
+<b>8月：</b> Back to School，預估 <b>\$120k-\$135k</b><br>
+<b>9月：</b> 通常小回落，預估 <b>\$110k-\$125k</b><br>
+<b>10月：</b> Halloween，預估 <b>\$125k-\$145k</b><br>
+<b>11月：</b> Black Friday，預估 <b>\$180k-\$250k</b><br>
+<b>12月：</b> Christmas，預估 <b>\$200k-\$300k</b>
 
 </div>
 """, unsafe_allow_html=True)
@@ -402,7 +403,7 @@ S + AK 佔比：
 <li>每月新增 10-15 位穩定出單深達</li>
 </ul>
 
-NailVesta 在 2026 下半年有機會穩定突破 <b>每月 $150k+ GMV</b>，11月到12月有機會挑戰 <b>$250k+ 單月 GMV</b>。
+NailVesta 在 2026 下半年有機會穩定突破 <b>每月 \\$150k+ GMV</b>，11月到12月有機會挑戰 <b>\\$250k+ 單月 GMV</b>。
 
 </div>
 """, unsafe_allow_html=True)
