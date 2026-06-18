@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
 st.set_page_config(page_title="NailVesta GMV Dashboard", layout="wide")
 
@@ -24,26 +23,32 @@ st.markdown("""
 <style>
 .block-container {
     padding-top: 2rem;
-    max-width: 1200px;
+    max-width: 1150px;
 }
-.metric-card {
-    background: #ffffff;
-    padding: 18px;
-    border-radius: 16px;
-    border: 1px solid #eee;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+
+[data-testid="stMetricValue"] {
+    font-size: 24px;
 }
+
 .analysis-box {
     background: #fff8f5;
     padding: 22px 26px;
     border-radius: 18px;
     border: 1px solid #f0d8cf;
     line-height: 1.8;
+    font-size: 15.5px;
 }
-.small-title {
+
+.section-title {
     font-size: 22px;
     font-weight: 700;
-    margin-top: 20px;
+    margin-top: 12px;
+    margin-bottom: 10px;
+}
+
+.small-note {
+    color: #666;
+    font-size: 14px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -52,8 +57,8 @@ col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("總 GMV", f"${total_gmv:,.2f}")
 col2.metric("平均月 GMV", f"${avg_gmv:,.2f}")
-col3.metric("最高月份", f"{max_month['月份']}", f"${max_month['GMV']:,.2f}")
-col4.metric("最低月份", f"{min_month['月份']}", f"${min_month['GMV']:,.2f}")
+col3.metric("最高月份", max_month["月份"], f"${max_month['GMV']:,.2f}")
+col4.metric("最低月份", min_month["月份"], f"${min_month['GMV']:,.2f}")
 
 st.divider()
 
@@ -72,44 +77,13 @@ left, right = st.columns(2)
 
 with left:
     st.subheader("GMV 趨勢圖")
-    fig = px.line(
-        df,
-        x="月份",
-        y="GMV",
-        markers=True,
-        text=df["GMV"].map(lambda x: f"${x/1000:.1f}k"),
-        title=""
-    )
-    fig.update_traces(textposition="top center")
-    fig.update_layout(
-        height=360,
-        margin=dict(l=20, r=20, t=30, b=20),
-        yaxis_title="GMV",
-        xaxis_title="月份",
-        template="plotly_white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    chart_df = df.set_index("月份")[["GMV"]]
+    st.line_chart(chart_df, height=280)
 
 with right:
     st.subheader("月增率變化")
-    growth_df = df.dropna()
-
-    fig2 = px.bar(
-        growth_df,
-        x="月份",
-        y="月增率",
-        text=growth_df["月增率"].map(lambda x: f"{x:.2f}%"),
-        title=""
-    )
-    fig2.update_traces(textposition="outside")
-    fig2.update_layout(
-        height=360,
-        margin=dict(l=20, r=20, t=30, b=20),
-        yaxis_title="月增率 %",
-        xaxis_title="月份",
-        template="plotly_white"
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+    growth_df = df.dropna().set_index("月份")[["月增率"]]
+    st.bar_chart(growth_df, height=280)
 
 st.divider()
 
@@ -118,13 +92,15 @@ st.subheader("專業趨勢分析")
 st.markdown("""
 <div class="analysis-box">
 
-<div class="small-title">第一階段：1月 → 4月連續下滑</div>
+<div class="section-title">第一階段：1月 → 4月連續下滑</div>
 
 從 1月的 <b>$125,296.69</b> 下降到 4月的 <b>$95,443.74</b>。
 
 <br><br>
 
 總跌幅：
+
+<br>
 
 <b>(95,443.74 - 125,296.69) / 125,296.69 = -23.83%</b>
 
@@ -177,7 +153,7 @@ st.markdown("""
 
 <br>
 
-<div class="small-title">第二階段：5月反彈</div>
+<div class="section-title">第二階段：5月反彈</div>
 
 4月 GMV：<b>$95,443.74</b><br>
 5月 GMV：<b>$103,197.84</b>
@@ -185,6 +161,8 @@ st.markdown("""
 <br><br>
 
 成長率：
+
+<br>
 
 <b>(103,197.84 - 95,443.74) / 95,443.74 = 8.13%</b>
 
@@ -214,6 +192,8 @@ st.markdown("""
 
 轉化率：
 
+<br>
+
 <b>392 / 1,061 = 36.95%</b>
 
 <br><br>
@@ -227,6 +207,8 @@ Top10 達人 GMV：<b>$44,621</b>
 <br><br>
 
 佔整體：
+
+<br>
 
 <b>44,621 / 103,197 = 43.2%</b>
 
@@ -245,26 +227,9 @@ forecast_data = {
     "高預估": [115000, 125000, 135000, 125000, 145000, 250000, 300000]
 }
 
-forecast_df = pd.DataFrame(forecast_data)
+forecast_df = pd.DataFrame(forecast_data).set_index("月份")
 
-fig3 = px.line(
-    forecast_df,
-    x="月份",
-    y=["低預估", "高預估"],
-    markers=True,
-    title=""
-)
-
-fig3.update_layout(
-    height=380,
-    margin=dict(l=20, r=20, t=30, b=20),
-    yaxis_title="預估 GMV",
-    xaxis_title="月份",
-    template="plotly_white",
-    legend_title_text="預測區間"
-)
-
-st.plotly_chart(fig3, use_container_width=True)
+st.line_chart(forecast_df, height=320)
 
 st.markdown("""
 <div class="analysis-box">
@@ -310,6 +275,8 @@ Week76 數據：
 </ul>
 
 S + AK 佔比：
+
+<br>
 
 <b>93 / 189 = 49.2%</b>
 
