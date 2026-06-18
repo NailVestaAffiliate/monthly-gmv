@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 st.set_page_config(page_title="NailVesta GMV Dashboard", layout="wide")
 
@@ -33,6 +34,16 @@ FORECAST_DATA = {
     "低預估": [105000, 110000, 120000, 110000, 125000, 180000, 200000],
     "高預估": [115000, 125000, 135000, 125000, 145000, 250000, 300000],
 }
+
+# 賽道定位圖（穿戴甲競品）
+# 平均單價 = 公開零售價約值；聲量分數 = 依公開聲量做的質化分級 1–10（非實際 GMV，可自行調整）
+POSITIONING = {
+    "品牌":     ["NailVesta", "Glamnetic", "KISS Nails", "Dashing Diva", "Olive & June", "BTArtbox"],
+    "平均單價": [42,          16,          9,            11,             11,             10],
+    "聲量分數": [6,           9,           8,            7,              6,              6],
+    "類型":     ["你的品牌",  "競品",      "競品",       "競品",         "競品",         "競品"],
+}
+CATEGORY_AUP = 18.57  # 2025 美國 TikTok Shop 美妝品類平均單價（公開數據）
 
 # =========================================================
 # 側邊欄：可編輯的月度數據
@@ -133,6 +144,40 @@ st.markdown("""
     color: #666;
     font-size: 14px;
 }
+
+.highlight-box {
+    background: linear-gradient(135deg, #fff1ec 0%, #ffe6dc 100%);
+    border-left: 6px solid #e8623c;
+    padding: 26px 30px;
+    border-radius: 14px;
+    margin: 18px 0 8px 0;
+    box-shadow: 0 4px 14px rgba(232, 98, 60, 0.12);
+}
+
+.highlight-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #c8401f;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.highlight-point {
+    font-size: 17px;
+    line-height: 1.9;
+    margin: 4px 0;
+}
+
+.tag {
+    display: inline-block;
+    background: #e8623c;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+    margin-right: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -211,7 +256,27 @@ st.markdown(f"""
 
 這其實非常符合 TikTok Shop 美國市場的季節性規律。
 
-<br><br>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="highlight-box">
+<div class="highlight-title">📌 重點：這完全符合 TikTok Shop 美國市場的季節性規律</div>
+
+<div class="highlight-point"><span class="tag">Q1</span><b>1月最強</b>：節後流量 + Holiday 庫存內容延續出單，全平台美妝普遍是全年高點之一。</div>
+
+<div class="highlight-point"><span class="tag">Q1→Q2</span><b>2–4月走弱</b>：帳單壓力、無大型購物節、CPM 下降，是全行業的淡季，不是你品牌獨有。</div>
+
+<div class="highlight-point"><span class="tag">夏季</span><b>5月起回升</b>：美甲本身有夏季旺季（假期、活動、出遊），這跟你 5月反彈與下半年預測同向。</div>
+
+<div class="highlight-point"><span class="tag">Q4</span><b>11–12月爆發</b>：BFCM + 聖誕,2025 TikTok Shop 美國光 BFCM 四天就破 5億美元 GMV,是全年最大波。</div>
+
+<div class="highlight-point" style="margin-top:12px; color:#7a3b2a;">➡️ <b>結論：你 1→4月的下滑是「市場節奏」而非「品牌衰退」,真正能拉開差距的是淡季的深達擴張與內容品質。</b></div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="analysis-box">
 
 <b>1月：</b><br>
 聖誕節後流量仍在，許多品牌延續 Holiday 流量，Creator 庫存內容持續出單，所以通常是 Q1 最強月份。
@@ -273,6 +338,135 @@ st.markdown(f"""
 <li>品牌已經停止下跌</li>
 <li>開始重新進入成長</li>
 </ul>
+
+</div>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# TikTok Shop 頭部品牌對照
+# =========================================================
+
+st.subheader("TikTok Shop 頭部品牌對照")
+
+st.markdown("""
+<div class="analysis-box">
+下面是同樣在 TikTok Shop（美國）跑的頭部品牌，分成兩組：
+<b>直接競品（穿戴甲/美甲）</b> 用來看你在賽道內的位置，
+<b>規模對標（大盤美妝頭部）</b> 用來看天花板在哪。
+<br><br>
+<span class="small-note">說明：競品的「逐月 GMV」屬於各品牌非公開數據，需透過 Kalodata / FastMoss / EchoTik 等付費工具才能拉到月級曲線；
+下表的規模欄位採用公開報導與 Charm.io 2025 全年美國 TikTok Shop 美妝榜數據,僅供量級參考。</span>
+</div>
+""", unsafe_allow_html=True)
+
+competitor_df = pd.DataFrame({
+    "品牌": [
+        "Glamnetic", "KISS Nails", "Dashing Diva", "Olive & June", "BTArtbox",
+        "Medicube", "Tarte", "Dr. Melaxin",
+    ],
+    "類別": [
+        "穿戴甲（高端 DTC）", "穿戴甲（大眾/開架）", "穿戴甲・指甲貼", "穿戴甲＋指甲護理", "穿戴甲（亞馬遜起家）",
+        "護膚", "彩妝", "護膚",
+    ],
+    "對 NailVesta": [
+        "直接競品", "直接競品", "直接競品", "直接競品", "直接競品",
+        "規模對標", "規模對標", "規模對標",
+    ],
+    "規模 / 定位": [
+        "美國穿戴甲 TikTok 高聲量品牌，單價偏高、達人帶貨密集",
+        "開架龍頭，走量、低單價、鋪貨廣",
+        "指甲貼／半固化凝膠強，零售＋線上雙渠道",
+        "主打環保材質＋指甲護理組合，客單偏高",
+        "性價比款式多，評論數大、轉化穩",
+        "2025 美國 TikTok Shop 美妝銷量前段（套組玻璃肌爆款）",
+        "美妝頭部，套組策略，常駐美妝榜前列",
+        "2025 美國 TikTok Shop 約 $64.6M（護膚頭部之一）",
+    ],
+})
+
+st.dataframe(competitor_df, use_container_width=True, hide_index=True)
+
+st.markdown(f"""
+<div class="analysis-box">
+
+<div class="section-title">怎麼用這張表對照你自己</div>
+
+<b>1. 量級基準</b><br>
+2025 全年美國 TikTok Shop 美妝品類約 <b>\\$2.7B GMV</b>、賣出 <b>1.47 億件</b>、平均單價約 <b>\\$18.57</b>。
+護膚頭部單一品牌（如 Dr. Melaxin）一年可達 <b>\\$60M+</b>。
+你目前單月約 <b>{usd(may)}</b>、年化約 <b>{usd(may * 12)}</b>，
+在「穿戴甲」這個比美妝大盤更窄的賽道屬於中上量級,離頭部仍有空間,主要差在達人規模與爆款密度。
+
+<br><br>
+
+<b>2. 單價策略</b><br>
+大盤平均單價只有 <b>\\$18.57</b>,走的是「低單價＋走量＋達人密集」。
+你的單價區間(\\$29.99–\\$54.99)明顯偏高,屬於 Glamnetic / Olive & June 那種高端定位,
+所以你的打法應該是 <b>內容品質與深達深度</b>,而不是跟 KISS 拼鋪貨走量。
+
+<br><br>
+
+<b>3. 季節節奏一致</b><br>
+這些頭部品牌共同的曲線是:<b>Q1 高 → Q2 軟 → 夏季回溫 → Q4（BFCM＋聖誕）爆發</b>。
+你 1→4月下滑、5月反彈,跟整個賽道同步,再次證明那不是品牌問題,而是市場節奏。
+真正的勝負點在 <b>淡季有沒有把深達與內容養起來</b>,這樣 Q4 爆發時才接得住。
+
+</div>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# 賽道定位圖
+# =========================================================
+
+st.subheader("賽道定位圖：你 vs 穿戴甲競品")
+
+pos_df = pd.DataFrame(POSITIONING)
+
+color_scale = alt.Scale(domain=["你的品牌", "競品"], range=["#e8623c", "#9aa0a6"])
+
+points = alt.Chart(pos_df).mark_circle(size=520, opacity=0.85).encode(
+    x=alt.X("平均單價:Q", title="平均單價（約, USD）", scale=alt.Scale(domain=[0, 50])),
+    y=alt.Y("聲量分數:Q", title="TikTok Shop 相對聲量（質化分級 1–10）", scale=alt.Scale(domain=[0, 10])),
+    color=alt.Color("類型:N", scale=color_scale, legend=alt.Legend(title="", orient="top-right")),
+    tooltip=["品牌", "平均單價", "聲量分數"],
+)
+
+labels = alt.Chart(pos_df).mark_text(dy=-22, fontSize=13, fontWeight="bold").encode(
+    x="平均單價:Q",
+    y="聲量分數:Q",
+    text="品牌",
+    color=alt.Color("類型:N",
+                    scale=alt.Scale(domain=["你的品牌", "競品"], range=["#c8401f", "#5f6368"]),
+                    legend=None),
+)
+
+aup_rule = alt.Chart(pd.DataFrame({"x": [CATEGORY_AUP]})).mark_rule(
+    strokeDash=[6, 4], color="#3a7bd5", size=2
+).encode(x="x:Q")
+
+aup_label = alt.Chart(
+    pd.DataFrame({"x": [CATEGORY_AUP], "y": [9.5], "t": [f"品類平均單價 ${CATEGORY_AUP}"]})
+).mark_text(align="left", dx=6, color="#3a7bd5", fontSize=12, fontWeight="bold").encode(
+    x="x:Q", y="y:Q", text="t:N"
+)
+
+chart = (points + labels + aup_rule + aup_label).properties(height=440)
+st.altair_chart(chart, use_container_width=True)
+
+st.markdown(f"""
+<div class="analysis-box">
+
+<b>圖怎麼讀：</b>越往右單價越高，越往上 TikTok Shop 聲量越大。
+
+<ul>
+<li><b>你（橘點）是價格最高的離群者</b>：約 <b>\\$42</b>，遠高於所有穿戴甲競品（多落在 \\$9–\\$16），也高於品類平均 <b>\\${CATEGORY_AUP}</b>（藍色虛線）。</li>
+<li><b>KISS / BTArtbox</b> 在左側：低價走量、鋪貨型，跟你不是同一種打法。</li>
+<li><b>Glamnetic</b> 在右上：同樣偏高價、但聲量更大，是你最該對標的「升級版」競品。</li>
+<li><b>你的成長路徑</b>：價格已站在高端，往上(把聲量做大)才是空間，靠的是深達深度＋S級內容，而不是降價。</li>
+</ul>
+
+<span class="small-note">註：競品單價為公開零售價約值、聲量分數為質化分級（非實際 GMV），數值可在程式碼上方 <code>POSITIONING</code> 調整；
+NailVesta 為實際定價中位。你目前年化 GMV 約 <b>{usd(may * 12)}</b>。</span>
 
 </div>
 """, unsafe_allow_html=True)
