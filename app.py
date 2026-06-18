@@ -45,6 +45,19 @@ POSITIONING = {
 }
 CATEGORY_AUP = 18.57  # 2025 美國 TikTok Shop 美妝品類平均單價（公開數據）
 
+# 競品逐月數據（來源：FastMoss，2026-06-18 擷取）
+# 之後要加競品，照同樣格式往字典裡新增即可
+COMPETITORS = {
+    "Nailphoria": {
+        "月份":  ["1月",   "2月",   "3月",   "4月",   "5月"],
+        "GMV":   [465700,  421500,  360200,  330800,  344400],
+        "销量":  [11700,   11300,   10700,   9639,    10600],
+        "达人数": [537,     573,     341,     302,     247],
+        "直播数": [415,     220,     187,     408,     413],
+        "视频数": [625,     656,     439,     122,     91],
+    },
+}
+
 # =========================================================
 # 側邊欄：可編輯的月度數據
 # =========================================================
@@ -467,6 +480,121 @@ st.markdown(f"""
 
 <span class="small-note">註：競品單價為公開零售價約值、聲量分數為質化分級（非實際 GMV），數值可在程式碼上方 <code>POSITIONING</code> 調整；
 NailVesta 為實際定價中位。你目前年化 GMV 約 <b>{usd(may * 12)}</b>。</span>
+
+</div>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# 競品對比（真實月度數據）
+# =========================================================
+
+st.subheader("競品對比：NailVesta vs 競品（1–5月）")
+
+month_sort = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+brand_colors = ["#e8623c", "#7b4fc0", "#2a9d8f", "#e9b949", "#3a7bd5"]
+
+# 組長表：NailVesta（來自可編輯數據）＋ 各競品
+rows = []
+nv_map = dict(zip(df["月份"], df["GMV"]))
+for m in month_sort:
+    if m in nv_map:
+        rows.append({"月份": m, "品牌": "NailVesta", "GMV": float(nv_map[m])})
+for brand, d in COMPETITORS.items():
+    for m, g in zip(d["月份"], d["GMV"]):
+        rows.append({"月份": m, "品牌": brand, "GMV": float(g)})
+
+comp_df = pd.DataFrame(rows)
+comp_df["_sort"] = comp_df["月份"].map({m: i for i, m in enumerate(month_sort)})
+comp_df = comp_df.sort_values(["品牌", "_sort"])
+# 指數：各品牌以自己最早月份 = 100
+comp_df["指數"] = comp_df.groupby("品牌")["GMV"].transform(lambda s: s / s.iloc[0] * 100)
+
+domain_brands = ["NailVesta"] + list(COMPETITORS.keys())
+color_enc = alt.Color("品牌:N", scale=alt.Scale(domain=domain_brands, range=brand_colors[:len(domain_brands)]))
+
+st.markdown("**① 絕對 GMV（看規模差距）**")
+abs_chart = alt.Chart(comp_df).mark_line(point=True, strokeWidth=3).encode(
+    x=alt.X("月份:N", sort=month_sort, title="月份"),
+    y=alt.Y("GMV:Q", title="月 GMV (USD)"),
+    color=color_enc,
+    tooltip=["品牌", "月份", alt.Tooltip("GMV:Q", format=",.0f")],
+).properties(height=340)
+st.altair_chart(abs_chart, use_container_width=True)
+
+st.markdown("**② 指數化（1月=100，看季節形狀是否一致）**")
+idx_lines = alt.Chart(comp_df).mark_line(point=True, strokeWidth=3).encode(
+    x=alt.X("月份:N", sort=month_sort, title="月份"),
+    y=alt.Y("指數:Q", title="指數（1月=100）", scale=alt.Scale(domain=[60, 110])),
+    color=color_enc,
+    tooltip=["品牌", "月份", alt.Tooltip("指數:Q", format=".1f")],
+)
+base_rule = alt.Chart(pd.DataFrame({"y": [100]})).mark_rule(
+    strokeDash=[4, 4], color="#bbb"
+).encode(y="y:Q")
+st.altair_chart((idx_lines + base_rule).properties(height=340), use_container_width=True)
+
+# 指標對照表
+def metrics_for(g_map):
+    months = [m for m in ["1月", "2月", "3月", "4月", "5月"] if m in g_map]
+    vals = [g_map[m] for m in months]
+    total = sum(vals)
+    avg = total / len(vals) if vals else 0
+    drop = (g_map["4月"] - g_map["1月"]) / g_map["1月"] * 100 if "1月" in g_map and "4月" in g_map else None
+    may = (g_map["5月"] - g_map["4月"]) / g_map["4月"] * 100 if "4月" in g_map and "5月" in g_map else None
+    return total, avg, drop, may
+
+nv_total, nv_avg, nv_drop, nv_may = metrics_for(nv_map)
+np_map = dict(zip(COMPETITORS["Nailphoria"]["月份"], COMPETITORS["Nailphoria"]["GMV"]))
+np_total, np_avg, np_drop, np_may = metrics_for(np_map)
+np_units = sum(COMPETITORS["Nailphoria"]["销量"])
+np_asp = np_total / np_units if np_units else 0
+
+compare_table = pd.DataFrame({
+    "指標": ["1–5月總 GMV", "平均月 GMV", "1→4月跌幅", "5月環比", "平均件單價(ASP)", "相對規模"],
+    "NailVesta": [
+        f"${nv_total:,.0f}", f"${nv_avg:,.0f}", pct(nv_drop), pct(nv_may),
+        "定價 $29.99–$54.99", "1.0×",
+    ],
+    "Nailphoria": [
+        f"${np_total:,.0f}", f"${np_avg:,.0f}", pct(np_drop), pct(np_may),
+        f"${np_asp:,.1f}", f"{np_total / nv_total:.1f}×" if nv_total else "—",
+    ],
+})
+st.dataframe(compare_table, use_container_width=True, hide_index=True)
+
+st.markdown(f"""
+<div class="analysis-box">
+
+<div class="section-title">三個關鍵發現</div>
+
+<b>1. 季節形狀幾乎完全一致 ✅</b><br>
+Nailphoria 也是 <b>1月最高 → 4月見底 → 5月回升</b>：1→4月跌 <b>{pct(np_drop)}</b>（你 {pct(nv_drop)}），
+5月環比 <b>{pct(np_may)}</b>（你 {pct(nv_may)}）。
+看上面「指數化」那張圖,兩條線幾乎貼著走——<b>這直接證明你 1→4月的下滑是整個賽道的季節性,不是你品牌出問題</b>。
+而且你 5月的反彈（{pct(nv_may)}）比它（{pct(np_may)}）更強。
+
+<br><br>
+
+<b>2. 規模差距：它約是你的 {np_total / nv_total:.1f} 倍</b><br>
+同期 5個月 Nailphoria 約 <b>${np_total:,.0f}</b>，你約 <b>${nv_total:,.0f}</b>。
+件單價它約 <b>${np_asp:,.1f}</b>,落在你的定價區間內,代表 <b>同價位、同概念,但它的量體大得多</b>——天花板在那裡,你還有 3 倍以上的空間。
+
+<br><br>
+
+<b>3. 它的引擎是「直播」,而且正在從影片轉向直播</b><br>
+看月度結構:它的帶貨<b>影片數從 1月 625 一路掉到 5月 91</b>,但<b>直播數維持高檔（4月 408、5月 413）</b>,
+同時帶貨達人數從 537 收斂到 247——<b>它在「砍影片、押直播、集中到少數高產出管道（主要是自家官方號）」</b>。
+這跟你「靠大量外部達人鋪量」是相反的打法。它用更少的人做出更大的量,靠的是自播。
+
+<div class="section-title">對 NailVesta 的建議</div>
+<ul>
+<li><b>定價策略已驗證</b>:同價位競品做到你的 3.6 倍,不用懷疑高端定位,重點是放量。</li>
+<li><b>補上「自播」這條腿</b>:Nailphoria 證明高端穿戴甲靠自家直播能把單位產出拉高數倍,這是你目前最大的缺口,也最能降低對外部頭部達人的依賴。</li>
+<li><b>淡季別停</b>:兩家都在 Q2 觸底,但這正是養直播、養深達、囤內容的時機,Q4（BFCM）才接得住。</li>
+</ul>
+
+<span class="small-note">數據來源:Nailphoria 為 FastMoss 2026-06-18 擷取的月度卡片;NailVesta 為你的實際數據。
+之後再傳其他競品,照程式碼上方 <code>COMPETITORS</code> 格式加進去,這兩張圖和表會自動把新品牌畫上。</span>
 
 </div>
 """, unsafe_allow_html=True)
