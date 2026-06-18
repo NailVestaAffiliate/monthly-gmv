@@ -58,6 +58,23 @@ COMPETITORS = {
     },
 }
 
+# NailVesta 的 FastMoss「全店」數據（與競品同口徑，用於競品對比）
+# 注意：這與側邊欄你輸入的「內部 GMV」是兩個不同口徑，差距見下方說明
+NAILVESTA_FASTMOSS = {
+    "月份":  ["1月",   "2月",   "3月",   "4月",   "5月"],
+    "GMV":   [433100,  366500,  385500,  313200,  363900],
+    "销量":  [10600,   9231,    10300,   9417,    10900],
+    "达人数": [922,     882,     745,     1009,    867],
+    "直播数": [331,     378,     277,     426,     439],
+    "视频数": [1266,    1210,    1010,    428,     199],
+}
+
+# NailVesta 成交結構（FastMoss 聚合值，%）
+NAILVESTA_CHANNEL = {"商品卡": 29.34, "店铺自营号": 30.29, "达人带货": 40.37}
+NAILVESTA_METHOD = {"视频": 39.32, "直播": 31.34, "商品卡": 29.34}
+# 自家官方號近28天：销售额、直播 GPM、视频 GPM
+NV_OWN = {"销售额": 109300, "直播GPM": "$20.5–$23.58", "视频GPM": "$2.99–$4.45"}
+
 # =========================================================
 # 側邊欄：可編輯的月度數據
 # =========================================================
@@ -493,12 +510,11 @@ st.subheader("競品對比：NailVesta vs 競品（1–5月）")
 month_sort = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 brand_colors = ["#e8623c", "#7b4fc0", "#2a9d8f", "#e9b949", "#3a7bd5"]
 
-# 組長表：NailVesta（來自可編輯數據）＋ 各競品
+# 攤平：NailVesta（FastMoss 全店，與競品同口徑）＋ 各競品
 rows = []
-nv_map = dict(zip(df["月份"], df["GMV"]))
-for m in month_sort:
-    if m in nv_map:
-        rows.append({"月份": m, "品牌": "NailVesta", "GMV": float(nv_map[m])})
+nv_fm = dict(zip(NAILVESTA_FASTMOSS["月份"], NAILVESTA_FASTMOSS["GMV"]))
+for m, g in zip(NAILVESTA_FASTMOSS["月份"], NAILVESTA_FASTMOSS["GMV"]):
+    rows.append({"月份": m, "品牌": "NailVesta", "GMV": float(g)})
 for brand, d in COMPETITORS.items():
     for m, g in zip(d["月份"], d["GMV"]):
         rows.append({"月份": m, "品牌": brand, "GMV": float(g)})
@@ -506,13 +522,30 @@ for brand, d in COMPETITORS.items():
 comp_df = pd.DataFrame(rows)
 comp_df["_sort"] = comp_df["月份"].map({m: i for i, m in enumerate(month_sort)})
 comp_df = comp_df.sort_values(["品牌", "_sort"])
-# 指數：各品牌以自己最早月份 = 100
 comp_df["指數"] = comp_df.groupby("品牌")["GMV"].transform(lambda s: s / s.iloc[0] * 100)
 
 domain_brands = ["NailVesta"] + list(COMPETITORS.keys())
 color_enc = alt.Color("品牌:N", scale=alt.Scale(domain=domain_brands, range=brand_colors[:len(domain_brands)]))
 
-st.markdown("**① 絕對 GMV（看規模差距）**")
+# ---- 先講口徑落差 ----
+nv_internal_map = dict(zip(df["月份"], df["GMV"]))
+internal_may = nv_internal_map.get("5月")
+fm_may = nv_fm.get("5月")
+gap_ratio = (fm_may / internal_may) if internal_may else None
+
+st.markdown(f"""
+<div class="highlight-box">
+<div class="highlight-title">⚠️ 先注意：兩個 GMV 口徑差了約 {gap_ratio:.1f} 倍</div>
+<div class="highlight-point">你側邊欄輸入的「內部 GMV」5月是 <b>{usd(internal_may)}</b>，
+但 FastMoss 看到的 NailVesta「全店 TikTok Shop GMV」5月是 <b>{usd(fm_may)}</b>。</div>
+<div class="highlight-point">FastMoss 是第三方估算會有誤差，但 {gap_ratio:.1f} 倍太大、不像單純誤差。
+對照你的成交結構：達人帶貨只佔 <b>40.37%</b>，另外 <b>商品卡 29.34% + 自營號 30.29%</b>。
+很可能你內部那個數字主要抓的是<b>達人歸因的單</b>，漏掉了商品卡與自播——這正是你之前提過的「歸因落差」。</div>
+<div class="highlight-point" style="color:#7a3b2a;">➡️ 下面競品對比<b>兩邊都用 FastMoss 全店口徑</b>，才公平。你內部真實全店 GMV 多少你最清楚，若接近 FastMoss，那是好消息。</div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("**① 絕對 GMV（FastMoss 全店口徑）**")
 abs_chart = alt.Chart(comp_df).mark_line(point=True, strokeWidth=3).encode(
     x=alt.X("月份:N", sort=month_sort, title="月份"),
     y=alt.Y("GMV:Q", title="月 GMV (USD)"),
@@ -521,7 +554,7 @@ abs_chart = alt.Chart(comp_df).mark_line(point=True, strokeWidth=3).encode(
 ).properties(height=340)
 st.altair_chart(abs_chart, use_container_width=True)
 
-st.markdown("**② 指數化（1月=100，看季節形狀是否一致）**")
+st.markdown("**② 指數化（1月=100，看季節形狀）**")
 idx_lines = alt.Chart(comp_df).mark_line(point=True, strokeWidth=3).encode(
     x=alt.X("月份:N", sort=month_sort, title="月份"),
     y=alt.Y("指數:Q", title="指數（1月=100）", scale=alt.Scale(domain=[60, 110])),
@@ -533,31 +566,30 @@ base_rule = alt.Chart(pd.DataFrame({"y": [100]})).mark_rule(
 ).encode(y="y:Q")
 st.altair_chart((idx_lines + base_rule).properties(height=340), use_container_width=True)
 
-# 指標對照表
+# 指標對照表（兩邊都 FastMoss 口徑）
 def metrics_for(g_map):
-    months = [m for m in ["1月", "2月", "3月", "4月", "5月"] if m in g_map]
-    vals = [g_map[m] for m in months]
-    total = sum(vals)
-    avg = total / len(vals) if vals else 0
     drop = (g_map["4月"] - g_map["1月"]) / g_map["1月"] * 100 if "1月" in g_map and "4月" in g_map else None
     may = (g_map["5月"] - g_map["4月"]) / g_map["4月"] * 100 if "4月" in g_map and "5月" in g_map else None
-    return total, avg, drop, may
+    return sum(g_map.values()), sum(g_map.values()) / len(g_map), drop, may
 
-nv_total, nv_avg, nv_drop, nv_may = metrics_for(nv_map)
+nv_total, nv_avg, nv_drop, nv_may = metrics_for(nv_fm)
+nv_units = sum(NAILVESTA_FASTMOSS["销量"])
+nv_asp = nv_total / nv_units if nv_units else 0
+
 np_map = dict(zip(COMPETITORS["Nailphoria"]["月份"], COMPETITORS["Nailphoria"]["GMV"]))
 np_total, np_avg, np_drop, np_may = metrics_for(np_map)
 np_units = sum(COMPETITORS["Nailphoria"]["销量"])
 np_asp = np_total / np_units if np_units else 0
 
 compare_table = pd.DataFrame({
-    "指標": ["1–5月總 GMV", "平均月 GMV", "1→4月跌幅", "5月環比", "平均件單價(ASP)", "相對規模"],
+    "指標": ["1–5月總 GMV", "平均月 GMV", "1→4月跌幅", "5月環比", "平均件單價(ASP)", "美妝月榜(2026-05)", "店舖評分", "48h出貨率"],
     "NailVesta": [
         f"${nv_total:,.0f}", f"${nv_avg:,.0f}", pct(nv_drop), pct(nv_may),
-        "定價 $29.99–$54.99", "1.0×",
+        f"${nv_asp:,.1f}", "#192", "4.9", "74%",
     ],
     "Nailphoria": [
         f"${np_total:,.0f}", f"${np_avg:,.0f}", pct(np_drop), pct(np_may),
-        f"${np_asp:,.1f}", f"{np_total / nv_total:.1f}×" if nv_total else "—",
+        f"${np_asp:,.1f}", "#209", "4.8", "87%",
     ],
 })
 st.dataframe(compare_table, use_container_width=True, hide_index=True)
@@ -565,40 +597,85 @@ st.dataframe(compare_table, use_container_width=True, hide_index=True)
 st.markdown(f"""
 <div class="analysis-box">
 
-<div class="section-title">三個關鍵發現</div>
+<div class="section-title">關鍵發現（修正版）</div>
 
-<b>1. 季節形狀幾乎完全一致 ✅</b><br>
-Nailphoria 也是 <b>1月最高 → 4月見底 → 5月回升</b>：1→4月跌 <b>{pct(np_drop)}</b>（你 {pct(nv_drop)}），
-5月環比 <b>{pct(np_may)}</b>（你 {pct(nv_may)}）。
-看上面「指數化」那張圖,兩條線幾乎貼著走——<b>這直接證明你 1→4月的下滑是整個賽道的季節性,不是你品牌出問題</b>。
-而且你 5月的反彈（{pct(nv_may)}）比它（{pct(np_may)}）更強。
-
-<br><br>
-
-<b>2. 規模差距：它約是你的 {np_total / nv_total:.1f} 倍</b><br>
-同期 5個月 Nailphoria 約 <b>${np_total:,.0f}</b>，你約 <b>${nv_total:,.0f}</b>。
-件單價它約 <b>${np_asp:,.1f}</b>,落在你的定價區間內,代表 <b>同價位、同概念,但它的量體大得多</b>——天花板在那裡,你還有 3 倍以上的空間。
+<b>1. 你跟 Nailphoria 其實是同量級，不是差好幾倍 ✅</b><br>
+用同口徑比，5個月 NailVesta 約 <b>${nv_total:,.0f}</b>、Nailphoria 約 <b>${np_total:,.0f}</b>，
+它只大你約 <b>{(np_total / nv_total - 1) * 100:.0f}%</b>。而且<b>3月和5月你還反超它</b>；
+2026-05 美妝月榜你是 <b>#192</b>、它 #209，<b>你排得比它前面</b>。件單價兩邊都約 $36，定位完全同級。
 
 <br><br>
 
-<b>3. 它的引擎是「直播」,而且正在從影片轉向直播</b><br>
-看月度結構:它的帶貨<b>影片數從 1月 625 一路掉到 5月 91</b>,但<b>直播數維持高檔（4月 408、5月 413）</b>,
-同時帶貨達人數從 537 收斂到 247——<b>它在「砍影片、押直播、集中到少數高產出管道（主要是自家官方號）」</b>。
-這跟你「靠大量外部達人鋪量」是相反的打法。它用更少的人做出更大的量,靠的是自播。
+<b>2. 季節形狀一致，你的反彈更猛</b><br>
+兩家都 1月高 → 4月見底 → 5月回升：你 1→4月 {pct(nv_drop)}、5月環比 <b>{pct(nv_may)}</b>；
+它 {pct(np_drop)}、5月 {pct(np_may)}。你 5月的反彈明顯比它強。再次證明 1→4月下滑是賽道季節性。
 
-<div class="section-title">對 NailVesta 的建議</div>
+<br><br>
+
+<b>3. 兩家都在「砍影片、押直播」</b><br>
+你的帶貨影片數從 1月 1,266 掉到 5月 199、直播數從 331 升到 439；它影片 625→91、直播維持 400+。
+<b>方向一樣</b>——整個高端穿戴甲賽道都在往直播集中。
+
+<div class="section-title">真正的差別與建議</div>
 <ul>
-<li><b>定價策略已驗證</b>:同價位競品做到你的 3.6 倍,不用懷疑高端定位,重點是放量。</li>
-<li><b>補上「自播」這條腿</b>:Nailphoria 證明高端穿戴甲靠自家直播能把單位產出拉高數倍,這是你目前最大的缺口,也最能降低對外部頭部達人的依賴。</li>
-<li><b>淡季別停</b>:兩家都在 Q2 觸底,但這正是養直播、養深達、囤內容的時機,Q4（BFCM）才接得住。</li>
+<li><b>規模其實追平了</b>，不用再把它當「大你 3 倍的對手」；現在是貼身競爭。</li>
+<li><b>你的弱點是出貨</b>：48h 出貨率你 <b>74%</b> vs 它 87%，這是體驗與複購的隱形殺手，優先補。</li>
+<li><b>先搞清楚內部 GMV 口徑</b>：那個 {gap_ratio:.1f} 倍落差如果是漏抓商品卡/自播，代表你<b>實際比你以為的大很多</b>，資源配置（庫存、客服、廣告）都該重新校準。</li>
 </ul>
 
-<span class="small-note">數據來源:Nailphoria 為 FastMoss 2026-06-18 擷取的月度卡片;NailVesta 為你的實際數據。
-之後再傳其他競品,照程式碼上方 <code>COMPETITORS</code> 格式加進去,這兩張圖和表會自動把新品牌畫上。</span>
+<span class="small-note">數據來源：兩品牌均為 FastMoss 2026-06-18 月度卡片（全店口徑）。
+側邊欄的內部 GMV 維持你原本的數字，供你自己追蹤；競品對比一律用 FastMoss 口徑以求公平。</span>
 
 </div>
 """, unsafe_allow_html=True)
 
+# =========================================================
+# 直播 / 成交結構分析
+# =========================================================
+
+st.subheader("直播 & 成交結構：你的自播其實不弱")
+
+method_df = pd.DataFrame({
+    "方式": list(NAILVESTA_METHOD.keys()),
+    "佔比": list(NAILVESTA_METHOD.values()),
+})
+method_chart = alt.Chart(method_df).mark_bar().encode(
+    x=alt.X("佔比:Q", title="佔總 GMV %"),
+    y=alt.Y("方式:N", sort="-x", title=""),
+    color=alt.Color("方式:N", scale=alt.Scale(
+        domain=["视频", "直播", "商品卡"], range=["#7b4fc0", "#e8623c", "#9aa0a6"]), legend=None),
+    tooltip=["方式", alt.Tooltip("佔比:Q", format=".2f")],
+).properties(height=160)
+labels = alt.Chart(method_df).mark_text(align="left", dx=4, fontWeight="bold").encode(
+    x="佔比:Q", y=alt.Y("方式:N", sort="-x"), text=alt.Text("佔比:Q", format=".1f"),
+)
+st.markdown("**NailVesta 成交方式分布**")
+st.altair_chart(method_chart + labels, use_container_width=True)
+
+st.markdown(f"""
+<div class="analysis-box">
+
+之前我說「自播是你最大缺口」——看了真實數據要<b>修正</b>：你的自播一點都不弱。
+
+<ul>
+<li><b>直播已佔你 GMV 的 {NAILVESTA_METHOD['直播']}%</b>，自營號管道佔 {NAILVESTA_CHANNEL['店铺自营号']}%，你早就有在做自播。</li>
+<li><b>而且你的直播效率很高</b>：自家官方號直播 GPM <b>{NV_OWN['直播GPM']}</b>，影片 GPM 只有 {NV_OWN['视频GPM']}——
+直播每千次觀看的成交是影片的 <b>5–7 倍</b>。</li>
+<li>對照 Nailphoria：它官方號近28天帶 <b>$201,800</b>、你帶 <b>${NV_OWN['销售额']:,}</b>（約它的一半），
+但它的直播 GPM 只有 $10.94–$14.23，<b>反而比你低</b>。也就是說它靠「量」（更多場、更大號），你靠「效率」。</li>
+</ul>
+
+<b>結論：你該做的不是「從零建自播」，而是「把已經很賺的自播放大」</b>——
+你每場直播的轉化比 Nailphoria 好，缺的只是場次、時長與觀看量。
+把資源從低效的影片(GPM 只有 $3–4)往直播挪，是現成的增長槓桿。
+
+<span class="small-note">成交結構為 FastMoss 聚合值；GPM、自營號銷售額為近28天數據。</span>
+
+</div>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# 達人結構分析
 # =========================================================
 # 達人結構分析
 # =========================================================
