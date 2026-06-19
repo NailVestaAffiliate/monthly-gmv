@@ -393,71 +393,43 @@ st.markdown(f"""
 # TikTok Shop 頭部品牌對照
 # =========================================================
 
-st.subheader("TikTok Shop 頭部品牌對照")
+st.subheader("TikTok Shop 競品對照（FastMoss 全店實數）")
 
 st.markdown("""
 <div class="analysis-box">
-下面是同樣在 TikTok Shop（美國）跑的頭部品牌，分成兩組：
-<b>直接競品（穿戴甲/美甲）</b> 用來看你在賽道內的位置，
-<b>規模對標（大盤美妝頭部）</b> 用來看天花板在哪。
-<br><br>
-<span class="small-note">說明：競品的「逐月 GMV」屬於各品牌非公開數據，需透過 Kalodata / FastMoss / EchoTik 等付費工具才能拉到月級曲線；
-下表的規模欄位採用公開報導與 Charm.io 2025 全年美國 TikTok Shop 美妝榜數據,僅供量級參考。</span>
+這裡只留我們有 FastMoss 實數的兩個<b>直接競品</b>：Nailphoria（跟你同走高端）和 NailHaven（低價走量、對照組）。
+下表數字皆為 FastMoss 全店口徑、1–5月。
 </div>
 """, unsafe_allow_html=True)
 
+def _ta(g, u):
+    t = sum(g)
+    return t, t / sum(u)
+
+_nvt, _nva = _ta(NAILVESTA_FASTMOSS["GMV"], NAILVESTA_FASTMOSS["销量"])
+_npt, _npa = _ta(COMPETITORS["Nailphoria"]["GMV"], COMPETITORS["Nailphoria"]["销量"])
+_nht, _nha = _ta(COMPETITORS["NailHaven"]["GMV"], COMPETITORS["NailHaven"]["销量"])
+
 competitor_df = pd.DataFrame({
-    "品牌": [
-        "Glamnetic", "KISS Nails", "Dashing Diva", "Olive & June", "BTArtbox",
-        "Medicube", "Tarte", "Dr. Melaxin",
+    "品牌": ["NailVesta（你）", "Nailphoria", "NailHaven"],
+    "類別 / 定位": ["高端手工穿戴甲", "高端手工穿戴甲", "低價走量穿戴甲"],
+    "5個月 GMV": [f"${_nvt:,.0f}", f"${_npt:,.0f}", f"${_nht:,.0f}"],
+    "件單價": [f"${_nva:.1f}", f"${_npa:.1f}", f"${_nha:.1f}"],
+    "主力打法": [
+        "達人40% / 自播30% / 商品卡29%，均衡",
+        "自播驅動（官方號近28天 $20萬）",
+        "商品卡/搜尋 67%，低價鋪量",
     ],
-    "類別": [
-        "穿戴甲（高端 DTC）", "穿戴甲（大眾/開架）", "穿戴甲・指甲貼", "穿戴甲＋指甲護理", "穿戴甲（亞馬遜起家）",
-        "護膚", "彩妝", "護膚",
-    ],
-    "對 NailVesta": [
-        "直接競品", "直接競品", "直接競品", "直接競品", "直接競品",
-        "規模對標", "規模對標", "規模對標",
-    ],
-    "規模 / 定位": [
-        "美國穿戴甲 TikTok 高聲量品牌，單價偏高、達人帶貨密集",
-        "開架龍頭，走量、低單價、鋪貨廣",
-        "指甲貼／半固化凝膠強，零售＋線上雙渠道",
-        "主打環保材質＋指甲護理組合，客單偏高",
-        "性價比款式多，評論數大、轉化穩",
-        "2025 美國 TikTok Shop 美妝銷量前段（套組玻璃肌爆款）",
-        "美妝頭部，套組策略，常駐美妝榜前列",
-        "2025 美國 TikTok Shop 約 $64.6M（護膚頭部之一）",
+    "美妝月榜(05)": [
+        STORE_META["NailVesta"]["月榜"], STORE_META["Nailphoria"]["月榜"], STORE_META["NailHaven"]["月榜"],
     ],
 })
-
 st.dataframe(competitor_df, use_container_width=True, hide_index=True)
 
-st.markdown(f"""
+st.markdown(r"""
 <div class="analysis-box">
-
-<div class="section-title">怎麼用這張表對照你自己</div>
-
-<b>1. 量級基準</b><br>
-2025 全年美國 TikTok Shop 美妝品類約 <b>\\$2.7B GMV</b>、賣出 <b>1.47 億件</b>、平均單價約 <b>\\$18.57</b>。
-護膚頭部單一品牌（如 Dr. Melaxin）一年可達 <b>\\$60M+</b>。
-你目前單月約 <b>{usd(may)}</b>、年化約 <b>{usd(may * 12)}</b>，
-在「穿戴甲」這個比美妝大盤更窄的賽道屬於中上量級,離頭部仍有空間,主要差在達人規模與爆款密度。
-
-<br><br>
-
-<b>2. 單價策略</b><br>
-大盤平均單價只有 <b>\\$18.57</b>,走的是「低單價＋走量＋達人密集」。
-你的單價區間(\\$29.99–\\$54.99)明顯偏高,屬於 Glamnetic / Olive & June 那種高端定位,
-所以你的打法應該是 <b>內容品質與深達深度</b>,而不是跟 KISS 拼鋪貨走量。
-
-<br><br>
-
-<b>3. 季節節奏一致</b><br>
-這些頭部品牌共同的曲線是:<b>Q1 高 → Q2 軟 → 夏季回溫 → Q4（BFCM＋聖誕）爆發</b>。
-你 1→4月下滑、5月反彈,跟整個賽道同步,再次證明那不是品牌問題,而是市場節奏。
-真正的勝負點在 <b>淡季有沒有把深達與內容養起來</b>,這樣 Q4 爆發時才接得住。
-
+<b>一句話讀法</b>：三家 GMV 都在 \$1.6M–1.9M 同級距。Nailphoria 跟你同價位、靠自播衝量；
+NailHaven 是另一種物種——\$11 低價、靠商品卡搜尋走量，季節走勢還跟你相反。詳細拆解見下方圖表。
 </div>
 """, unsafe_allow_html=True)
 
