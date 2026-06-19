@@ -56,7 +56,24 @@ COMPETITORS = {
         "直播数": [415,     220,     187,     408,     413],
         "视频数": [625,     656,     439,     122,     91],
     },
+    "NailHaven": {
+        "月份":  ["1月",   "2月",   "3月",   "4月",   "5月"],
+        "GMV":   [316700,  315800,  294200,  342700,  398700],
+        "销量":  [27400,   27100,   26000,   29300,   34700],
+        "达人数": [138,     139,     167,     166,     201],
+        "直播数": [148,     181,     156,     316,     396],
+        "视频数": [262,     245,     314,     158,     210],
+    },
 }
+
+# 店舖層級體質（FastMoss 店舖詳情頁，2026-06-18）
+STORE_META = {
+    "NailVesta":  {"定位": "高端·內容/自播均衡", "月榜": "#192", "评分": "4.9", "48h出货": "74%"},
+    "Nailphoria": {"定位": "高端·自播驅動",       "月榜": "#209", "评分": "4.8", "48h出货": "87%"},
+    "NailHaven":  {"定位": "低價·走量/商品卡",     "月榜": "#178", "评分": "4.8", "48h出货": "87%"},
+}
+# NailHaven 成交結構（FastMoss 聚合值，%）— 與你形成強烈對比
+NAILHAVEN_CHANNEL = {"商品卡": 66.81, "店铺自营号": 2.36, "达人带货": 30.83}
 
 # NailVesta 的 FastMoss「全店」數據（與競品同口徑，用於競品對比）
 # 注意：這與側邊欄你輸入的「內部 GMV」是兩個不同口徑，差距見下方說明
@@ -581,50 +598,65 @@ np_total, np_avg, np_drop, np_may = metrics_for(np_map)
 np_units = sum(COMPETITORS["Nailphoria"]["销量"])
 np_asp = np_total / np_units if np_units else 0
 
-compare_table = pd.DataFrame({
-    "指標": ["1–5月總 GMV", "平均月 GMV", "1→4月跌幅", "5月環比", "平均件單價(ASP)", "美妝月榜(2026-05)", "店舖評分", "48h出貨率"],
-    "NailVesta": [
-        f"${nv_total:,.0f}", f"${nv_avg:,.0f}", pct(nv_drop), pct(nv_may),
-        f"${nv_asp:,.1f}", "#192", "4.9", "74%",
-    ],
-    "Nailphoria": [
-        f"${np_total:,.0f}", f"${np_avg:,.0f}", pct(np_drop), pct(np_may),
-        f"${np_asp:,.1f}", "#209", "4.8", "87%",
-    ],
-})
-st.dataframe(compare_table, use_container_width=True, hide_index=True)
+nh_map = dict(zip(COMPETITORS["NailHaven"]["月份"], COMPETITORS["NailHaven"]["GMV"]))
+nh_total, nh_avg, nh_drop, nh_may = metrics_for(nh_map)
+nh_units = sum(COMPETITORS["NailHaven"]["销量"])
+nh_asp = nh_total / nh_units if nh_units else 0
+
+# 動態建表：NailVesta + 所有競品
+def brand_units(b):
+    return sum(NAILVESTA_FASTMOSS["销量"]) if b == "NailVesta" else sum(COMPETITORS[b]["销量"])
+
+def brand_gmap(b):
+    return nv_fm if b == "NailVesta" else dict(zip(COMPETITORS[b]["月份"], COMPETITORS[b]["GMV"]))
+
+table = {"指標": ["1–5月總 GMV", "平均月 GMV", "件單價(ASP)", "1→4月變化", "5月環比",
+                 "美妝月榜(05)", "店舖評分", "48h出貨率", "定位"]}
+for b in ["NailVesta"] + list(COMPETITORS.keys()):
+    gm = brand_gmap(b)
+    tot, avg, drp, mayv = metrics_for(gm)
+    asp = tot / brand_units(b)
+    meta = STORE_META.get(b, {})
+    table[b] = [
+        f"${tot:,.0f}", f"${avg:,.0f}", f"${asp:,.1f}", pct(drp), pct(mayv),
+        meta.get("月榜", "—"), meta.get("评分", "—"), meta.get("48h出货", "—"), meta.get("定位", "—"),
+    ]
+st.dataframe(pd.DataFrame(table), use_container_width=True, hide_index=True)
 
 st.markdown(f"""
 <div class="analysis-box">
 
-<div class="section-title">關鍵發現（修正版）</div>
+<div class="section-title">三家其實是「兩種打法」</div>
 
-<b>1. 你跟 Nailphoria 其實是同量級，不是差好幾倍 ✅</b><br>
-用同口徑比，5個月 NailVesta 約 <b>${nv_total:,.0f}</b>、Nailphoria 約 <b>${np_total:,.0f}</b>，
-它只大你約 <b>{(np_total / nv_total - 1) * 100:.0f}%</b>。而且<b>3月和5月你還反超它</b>；
-2026-05 美妝月榜你是 <b>#192</b>、它 #209，<b>你排得比它前面</b>。件單價兩邊都約 $36，定位完全同級。
-
-<br><br>
-
-<b>2. 季節形狀一致，你的反彈更猛</b><br>
-兩家都 1月高 → 4月見底 → 5月回升：你 1→4月 {pct(nv_drop)}、5月環比 <b>{pct(nv_may)}</b>；
-它 {pct(np_drop)}、5月 {pct(np_may)}。你 5月的反彈明顯比它強。再次證明 1→4月下滑是賽道季節性。
+<b>1. GMV 三家同量級，但你和 Nailphoria 是一組、NailHaven 是另一組</b><br>
+5個月總 GMV：你 <b>${nv_total:,.0f}</b>、Nailphoria <b>${np_total:,.0f}</b>、NailHaven <b>${nh_total:,.0f}</b>——
+規模都在 $1.6M–1.9M，差距不到 15%。但件單價天差地遠：你和它約 <b>$36</b>，NailHaven 只有 <b>${nh_asp:,.1f}</b>。
+NailHaven 是用 <b>3 倍的件數、1/3 的單價</b>做到同樣的 GMV——典型低價走量。
 
 <br><br>
 
-<b>3. 兩家都在「砍影片、押直播」</b><br>
-你的帶貨影片數從 1月 1,266 掉到 5月 199、直播數從 331 升到 439；它影片 625→91、直播維持 400+。
-<b>方向一樣</b>——整個高端穿戴甲賽道都在往直播集中。
+<b>2. 季節性其實分「兩種」，不是整個賽道一致（修正上一輪）</b><br>
+你和 Nailphoria（高端內容型）都是 1月高→4月底→5月回升；
+但 NailHaven <b>反過來</b>：1→4月還 <b>{pct(nh_drop)}</b>（上升）、5月再 <b>{pct(nh_may)}</b>，5月是它全期最高。
+原因是它 <b>66.81% GMV 來自商品卡（搜尋/自然流）</b>，需求不靠達人內容,所以沒有 Q1 內容紅利的退潮,
+反而吃到夏季美甲的自然搜尋成長。<b>所以那條季節曲線是「高端內容型」的特性,不是全品類鐵律。</b>
 
-<div class="section-title">真正的差別與建議</div>
+<br><br>
+
+<b>3. 它最該讓你注意的不是價格，是「商品卡」</b><br>
+NailHaven 商品卡佔 66.81%、你只有 29.34%。它靠少量常青款（命名都叫 "Continued Collection"）長期吃搜尋流量;
+你走的是一波波「系列上新」,偏內容驅動。<b>你在搜尋/商品卡這條自然流量上是吃虧的</b>,
+這也是為什麼你比較吃季節（內容退潮就掉），它比較穩（搜尋需求全年都在）。
+
+<div class="section-title">給你的取捨</div>
 <ul>
-<li><b>規模其實追平了</b>，不用再把它當「大你 3 倍的對手」；現在是貼身競爭。</li>
-<li><b>你的弱點是出貨</b>：48h 出貨率你 <b>74%</b> vs 它 87%，這是體驗與複購的隱形殺手，優先補。</li>
-<li><b>先搞清楚內部 GMV 口徑</b>：那個 {gap_ratio:.1f} 倍落差如果是漏抓商品卡/自播，代表你<b>實際比你以為的大很多</b>，資源配置（庫存、客服、廣告）都該重新校準。</li>
+<li><b>不要去拼 NailHaven 的低價走量</b>：那會毀掉你 $36 的高端定位和毛利,不是你的戰場。</li>
+<li><b>但要偷它的「常青款 + 商品卡」打法</b>：留幾個長賣不退的款式做 SEO/搜尋承接,把 29% 的商品卡佔比往上拉,
+就能在淡季（內容紅利退潮時）墊住 GMV,降低你對季節的敏感度。</li>
+<li><b>它在美妝月榜 #178 比你（#192）和 Nailphoria（#209）都前面</b>——靠的是走量帶來的高件數/高動銷,提醒你榜單權重看「量」。</li>
 </ul>
 
-<span class="small-note">數據來源：兩品牌均為 FastMoss 2026-06-18 月度卡片（全店口徑）。
-側邊欄的內部 GMV 維持你原本的數字，供你自己追蹤；競品對比一律用 FastMoss 口徑以求公平。</span>
+<span class="small-note">三品牌均為 FastMoss 2026-06-18 月度卡片（全店口徑）。成交結構為 FastMoss 聚合值。</span>
 
 </div>
 """, unsafe_allow_html=True)
